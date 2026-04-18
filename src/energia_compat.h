@@ -1,4 +1,4 @@
-/* 
+/*
  * Compatibility header for Energia framework on TM4C123
  * Provides missing C standard library functions and Arduino API functions
  */
@@ -17,7 +17,7 @@
 #define toascii(c) (((unsigned char)(c)) & 0x7f)
 #endif
 
-/* 
+/*
  * Define missing digitalPinToInterrupt macro for TM4C123/Stellaris
  * For this platform, all GPIO pins support external interrupts
  * Map pin to interrupt number - for Energia on TM4C123, pin IS the interrupt
@@ -27,4 +27,3 @@
 #endif
 
 #endif /* _ENERGIA_COMPAT_H_ */
-

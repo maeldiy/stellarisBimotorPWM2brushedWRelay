@@ -8,9 +8,36 @@ This project converts two PWM signals from an ArduPilot flight controller to app
 
 **Board**: Stellaris LM4F120 (TM4C123G) LaunchPad  
 **Interface**: COM9 @ 115200 baud  
-**Framework**: Arduino (Energia)
+**Framework**: Arduino (Energia)  
+**IDE**: Energia IDE (Recommended) - See `/energia/` folder  
 
-## Features
+---
+
+## ⭐ Recommended: Use Energia IDE
+
+This project provides **two development environments**:
+
+| Environment | Setup | Reliability | Best For |
+|------------|-------|-----------|----------|
+| **Energia IDE** (Recommended) | ✅ Easiest | ✅ Highly Reliable | **New users, quick uploads** |
+| **PlatformIO** | Medium | ⚠️ Can have JTAG issues | Advanced users, VS Code users |
+
+### Quick Start with Energia IDE
+
+```bash
+1. Download Energia: http://energia.nu/
+2. Extract to: C:\Program Files\Energia
+3. Launch energia.exe
+4. File → Open → energia/stellarisBimotorPWM2brushedWRelay/
+5. Tools → Board → "TI LaunchPad w/ LM4F120 (80MHz)"
+6. Tools → Port → COM9
+7. Sketch → Upload (Ctrl+U)
+8. Done! Firmware is running ✅
+```
+
+**Why Energia?** Serial bootloader uploads work reliably without JTAG issues. See [PLATFORMIO_VS_ENERGIA.md](PLATFORMIO_VS_ENERGIA.md) for detailed comparison.
+
+---
 
 - **2 PWM Inputs**: Receives motor control signals from ArduPilot flight controller
 - **2 PWM Outputs**: Drives brushed DC motors via motor controller
@@ -152,11 +179,27 @@ The firmware uses hardware interrupts on PB6 and PB7 to measure incoming PWM pul
 
 **Interrupt-Capable Pins**: All GPIO pins support external interrupts
 
+## Documentation
+
+### Project Documentation
+- [PLATFORMIO_VS_ENERGIA.md](PLATFORMIO_VS_ENERGIA.md) - **Read this first!** Compare development environments
+- [SOLUTION_GUIDE.md](SOLUTION_GUIDE.md) - Troubleshooting and solutions
+- [UPLOAD_TROUBLESHOOTING.md](UPLOAD_TROUBLESHOOTING.md) - Upload issues & fixes
+- [PINOUT.md](PINOUT.md) - Detailed hardware pinout reference
+- [SETUP_COMPLETE.md](SETUP_COMPLETE.md) - Initial setup summary
+
+### Energia IDE Documentation (Recommended)
+- [energia/README.md](energia/README.md) - Energia setup and usage guide
+- [energia/ENERGIA_SETUP.md](energia/ENERGIA_SETUP.md) - Detailed installation instructions
+
 ## References
 
 - [TM4C123G LaunchPad User Guide](http://www.ti.com/lit/ug/spmu289c/spmu289c.pdf)
 - [TM4C123G PWM Module](http://www.ti.com/lit/ds/symlink/tm4c123gh6pm.pdf)
 - [Energia Framework](http://energia.nu/)
+- [Energia Reference](http://energia.nu/reference/)
+- [TI E2E Community](https://e2e.ti.com/)
+- [43oh Forum (Energia Community)](https://forum.43oh.com/)
 
 ## License
 

@@ -2,6 +2,8 @@
  * Stellaris LM4F120 Bi-Motor Control with PWM (Brushed motors with relay)
  * Adapted from ESP32 version for TM4C123G LaunchPad
  *
+ * ENERGIA IDE SKETCH - Compatible with Energia IDE for TM4C123G/Stellaris
+ *
  * This sketch converts 2 PWM signals from ArduPilot to appropriate signals
  * for brushed motor controllers with directional relay control.
  *
@@ -12,14 +14,8 @@
  * - COM9 @ 115200 baud serial communication
  *
  * Board: Stellaris LM4F120 (TM4C123G) LaunchPad
+ * IDE: Energia (http://energia.nu/)
  */
-
-// ===== SYSTEM INCLUDES =====
-#include "energia_compat.h" // Must come before Arduino.h
-#include <Arduino.h>
-#include <ctype.h>
-#include <stdbool.h>
-#include <stdint.h>
 
 // ===== LED PINS =====
 #define LED_RED PF_1   // Red LED (pin 33 on board)
@@ -31,14 +27,14 @@
 #define REVERSAL_OUT PA_6 // Output to indicate reversal mode
 
 // ===== MOTOR 1 PINS (Left motor) =====
-#define PROP_IN_PIN1 PB_6 // PWM input from ArduPilot (PE4 can also receive PWM)
+#define PROP_IN_PIN1 PB_6  // PWM input from ArduPilot
 #define PWM_PROP_PIN1 PE_4 // PWM output to motor (M0PWM6)
 #define FORWARD_PIN1 PD_0  // Direction control - forward
 #define STOP_PIN1 PA_2     // Stop/brake line (spare)
 #define BRAKE_PIN1 PA_4    // Brake line (spare)
 
 // ===== MOTOR 2 PINS (Right motor) =====
-#define PROP_IN_PIN2 PB_7 // PWM input from ArduPilot (PE5 can also receive PWM)
+#define PROP_IN_PIN2 PB_7  // PWM input from ArduPilot
 #define PWM_PROP_PIN2 PE_5 // PWM output to motor (M0PWM7)
 #define FORWARD_PIN2 PD_1  // Direction control - forward
 #define STOP_PIN2 PA_3     // Stop/brake line (spare)
@@ -70,6 +66,7 @@ void setup() {
   delay(500);
   Serial.println("\n\n========================================");
   Serial.println("Stellaris LM4F120 Bi-Motor PWM Controller");
+  Serial.println("Energia IDE Edition");
   Serial.println("========================================\n");
 
   // ===== REVERSAL CONTROL =====
@@ -99,8 +96,7 @@ void setup() {
   analogWrite(PWM_PROP_PIN1, 0);
 
   // Attach interrupt for PWM measurement on motor 1
-  attachInterrupt(digitalPinToInterrupt(PROP_IN_PIN1), interruptHandler1,
-                  CHANGE);
+  attachInterrupt(PROP_IN_PIN1, interruptHandler1, CHANGE);
 
   // ===== MOTOR 2 INITIALIZATION =====
   pinMode(PROP_IN_PIN2, INPUT);   // PWM input
@@ -116,8 +112,7 @@ void setup() {
   analogWrite(PWM_PROP_PIN2, 0);
 
   // Attach interrupt for PWM measurement on motor 2
-  attachInterrupt(digitalPinToInterrupt(PROP_IN_PIN2), interruptHandler2,
-                  CHANGE);
+  attachInterrupt(PROP_IN_PIN2, interruptHandler2, CHANGE);
 
   Serial.println("Initialization complete.");
   Serial.println("Waiting for PWM signals...\n");
@@ -250,7 +245,8 @@ void processPropulsionMotor1() {
     // Map to PWM (clamped at upper limit for safety)
     PropulsionValue1 =
         map(PropSignal1, FORWARD_THRESHOLD, SIGNAL_MAX, 150, 255);
-    PropulsionValue1 = min(PropulsionValue1, 255); // Ensure no overflow
+    PropulsionValue1 =
+        (PropulsionValue1 > 255) ? 255 : PropulsionValue1; // Ensure no overflow
     analogWrite(PWM_PROP_PIN1, PropulsionValue1);
   }
 }
@@ -307,7 +303,7 @@ void processPropulsionMotor2() {
     digitalWrite(FORWARD_PIN2, LOW);
     PropulsionValue2 =
         map(PropSignal2, FORWARD_THRESHOLD, SIGNAL_MAX, 150, 255);
-    PropulsionValue2 = min(PropulsionValue2, 255);
+    PropulsionValue2 = (PropulsionValue2 > 255) ? 255 : PropulsionValue2;
     analogWrite(PWM_PROP_PIN2, PropulsionValue2);
   }
 }
