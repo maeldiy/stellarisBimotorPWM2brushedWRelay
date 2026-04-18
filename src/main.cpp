@@ -14,6 +14,13 @@
  * Board: Stellaris LM4F120 (TM4C123G) LaunchPad
  */
 
+// ===== SYSTEM INCLUDES =====
+#include <ctype.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include "energia_compat.h"  // Must come before Arduino.h
+#include <Arduino.h>
+
 // ===== LED PINS =====
 #define LED_RED PF_1      // Red LED (pin 33 on board)
 #define LED_BLUE PF_2     // Blue LED (pin 32 on board)
