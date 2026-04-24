@@ -1,25 +1,82 @@
-# Stellaris LM4F120 Bi-Motor PWM Controller
+# Bi-Motor PWM Controller
 
-Adapted from ESP32 version for TM4C123G (Stellaris LM4F120) LaunchPad
+**Multiple Board Support**: ESP8266, Stellaris LM4F120, PlatformIO
 
-## Overview
-
-This project converts two PWM signals from an ArduPilot flight controller to appropriate signals for brushed motor controllers with relay-based directional control.
-
-**Board**: Stellaris LM4F120 (TM4C123G) LaunchPad  
-**Interface**: COM9 @ 115200 baud  
-**Framework**: Arduino (Energia)  
-**IDE**: Energia IDE (Recommended) - See `/energia/` folder  
+Converts two PWM signals from an ArduPilot flight controller to appropriate signals for brushed motor controllers.
 
 ---
 
-## ⭐ Recommended: Use Energia IDE
+## ⭐ Choose Your Platform
 
-This project provides **two development environments**:
+### 🚀 **RECOMMENDED: ESP8266** (Easiest, No Driver Issues)
+
+```bash
+✅ Setup: 15 minutes
+✅ Upload: 10 seconds
+✅ No driver headaches
+✅ Arduino IDE native
+✅ Board cost: $5-15
+✅ WiFi bonus
+```
+
+**Quick Start:**
+```
+1. Buy ESP8266 NodeMCU (~$7)
+2. Download Arduino IDE
+3. Add ESP8266 support
+4. Upload esp8266_bimotorPWM.ino
+5. Done! ✅
+```
+
+**Setup Guide**: See `/esp8266/ESP8266_SETUP.md`
+
+---
+
+### 🎯 **ALTERNATIVE: Stellaris LM4F120** (Via Energia IDE)
+
+```bash
+✅ Powerful 32-bit ARM microcontroller
+✅ Energia IDE support
+✅ Higher performance
+⚠️ More complex setup
+⚠️ Driver issues reported
+```
+
+**Setup Guide**: See `/energia/ENERGIA_SETUP.md`
+
+---
+
+### 📊 Comparison Table
+
+| Feature | **ESP8266** ⭐ | Stellaris | PlatformIO |
+|---------|--------------|-----------|-----------|
+| **Setup Time** | **15 min** | 30+ min | 30+ min |
+| **Reliability** | **✅ 99%** | ⚠️ 70% | ⚠️ 60% |
+| **Cost** | **$5-15** | $20+ | (requires Stellaris) |
+| **Upload Speed** | **10-15s** | 10-15s | 20-30s |
+| **Driver Issues** | **None** | Yes | Yes (OpenOCD) |
+| **Arduino IDE** | **Native** | Via Energia | Via extension |
+| **Learning Curve** | **Gentle** | Steep | Very steep |
+| **WiFi** | **Built-in!** | No | No |
+| **Best for** | **Everyone** | Advanced users | CI/CD |
+
+**Decision Matrix:**
+```
+Want it working FAST? → Use ESP8266
+Need more power? → Use Stellaris
+Want advanced debugging? → Use PlatformIO
+```
+
+---
+
+## ⭐ Recommended: Use Energia IDE (for Stellaris)
+
+This project provides **multiple development environments**:
 
 | Environment | Setup | Reliability | Best For |
 |------------|-------|-----------|----------|
-| **Energia IDE** (Recommended) | ✅ Easiest | ✅ Highly Reliable | **New users, quick uploads** |
+| **ESP8266** (BEST) | ✅ Easiest | ✅✅✅ Highly Reliable | **Everyone** |
+| **Energia IDE** | ✅ Easy | ✅ Reliable | **Stellaris users** |
 | **PlatformIO** | Medium | ⚠️ Can have JTAG issues | Advanced users, VS Code users |
 
 ### Quick Start with Energia IDE

@@ -51,11 +51,15 @@ volatile unsigned long pulseStart1 = 0, pulseStart2 = 0;
 volatile long pulseDuration1 = 0, pulseDuration2 = 0;
 
 // ===== PWM MEASUREMENT CONSTANTS =====
-// Thresholds for PWM signal interpretation
-#define SIGNAL_MIN 700         // Minimum valid signal
-#define SIGNAL_MAX 2000        // Maximum valid signal
-#define DEAD_ZONE 900          // Below this = no forward motion
-#define FORWARD_THRESHOLD 1400 // Above this = enter high-speed mode
+// User Requirements:
+// < 1500µs = Reverse
+// > 1500µs = Forward
+// < 900µs or > 2000µs = Out of range
+#define SIGNAL_MIN 900     // Minimum valid signal (µs)
+#define SIGNAL_MAX 2000    // Maximum valid signal (µs)
+#define NEUTRAL_POINT 1500 // Neutral/stop point (µs)
+#define REVERSE_MIN 900    // Minimum reverse signal
+#define FORWARD_MAX 2000   // Maximum forward signal
 
 // ===== FUNCTION PROTOTYPES =====
 void interruptHandler1();
@@ -208,9 +212,9 @@ void processPropulsionMotor1() {
     Serial.print(" | ");
   }
 
-  // ===== OUT OF BOUNDS CHECK =====
+  // ===== OUT OF BOUNDS CHECK: < 900µs or > 2000µs =====
   if (PropSignal1 < SIGNAL_MIN || PropSignal1 > SIGNAL_MAX) {
-    if (millis() - lastPrint < 100) { // Only if we just printed
+    if (millis() - lastPrint < 100) {
       Serial.println("ERROR: Out of range - STOP");
     }
     digitalWrite(LED_RED, HIGH);
@@ -218,39 +222,42 @@ void processPropulsionMotor1() {
     analogWrite(PWM_PROP_PIN1, 0);
     PropulsionValue1 = 0;
   }
-  // ===== DEAD ZONE =====
-  else if (PropSignal1 < DEAD_ZONE) {
+  // ===== NEUTRAL POINT: 1500µs = STOP =====
+  else if (PropSignal1 == NEUTRAL_POINT) {
     if (millis() - lastPrint < 100) {
-      Serial.println("Dead zone - STOP");
-    }
-    digitalWrite(LED_BLUE, LOW);
-    analogWrite(PWM_PROP_PIN1, 0);
-    PropulsionValue1 = 0;
-    digitalWrite(FORWARD_PIN1, LOW);
-  }
-  // ===== FORWARD MOTION =====
-  else if (PropSignal1 >= DEAD_ZONE && PropSignal1 < FORWARD_THRESHOLD) {
-    if (millis() - lastPrint < 100) {
-      Serial.println("Forward motion");
+      Serial.println("Neutral - STOP");
     }
     digitalWrite(LED_BLUE, HIGH);
-    digitalWrite(LED_GREEN, LOW);
-    digitalWrite(FORWARD_PIN1, LOW); // Forward direction
-    PropulsionValue1 = map(PropSignal1, DEAD_ZONE, FORWARD_THRESHOLD, 0, 255);
+    digitalWrite(LED_RED, LOW);
+    analogWrite(PWM_PROP_PIN1, 0);
+    PropulsionValue1 = 0;
+  }
+  // ===== REVERSE: < 1500µs =====
+  else if (PropSignal1 < NEUTRAL_POINT && PropSignal1 >= REVERSE_MIN) {
+    if (millis() - lastPrint < 100) {
+      Serial.println("Reverse");
+    }
+    digitalWrite(LED_BLUE, LOW);
+    digitalWrite(LED_RED, LOW);
+    digitalWrite(FORWARD_PIN1, LOW); // Reverse direction
+    // Proportional reverse: 900µs (100%) to 1500µs (0%)
+    uint32_t span = NEUTRAL_POINT - PropSignal1;
+    PropulsionValue1 = map(span, 0, (NEUTRAL_POINT - REVERSE_MIN), 0, 255);
+    PropulsionValue1 = constrain(PropulsionValue1, 0, 255);
     analogWrite(PWM_PROP_PIN1, PropulsionValue1);
   }
-  // ===== HIGH-SPEED or ERROR MODE =====
-  else if (PropSignal1 >= FORWARD_THRESHOLD) {
+  // ===== FORWARD: > 1500µs =====
+  else if (PropSignal1 > NEUTRAL_POINT && PropSignal1 <= FORWARD_MAX) {
     if (millis() - lastPrint < 100) {
-      Serial.println("High-speed forward");
+      Serial.println("Forward");
     }
     digitalWrite(LED_GREEN, HIGH);
     digitalWrite(LED_BLUE, LOW);
-    digitalWrite(FORWARD_PIN1, LOW); // Forward direction
-    // Map to PWM (clamped at upper limit for safety)
-    PropulsionValue1 =
-        map(PropSignal1, FORWARD_THRESHOLD, SIGNAL_MAX, 150, 255);
-    PropulsionValue1 = min(PropulsionValue1, 255); // Ensure no overflow
+    digitalWrite(FORWARD_PIN1, HIGH); // Forward direction
+    // Proportional forward: 1500µs (0%) to 2000µs (100%)
+    uint32_t span = PropSignal1 - NEUTRAL_POINT;
+    PropulsionValue1 = map(span, 0, (FORWARD_MAX - NEUTRAL_POINT), 0, 255);
+    PropulsionValue1 = constrain(PropulsionValue1, 0, 255);
     analogWrite(PWM_PROP_PIN1, PropulsionValue1);
   }
 }
@@ -258,7 +265,7 @@ void processPropulsionMotor1() {
 // ===== PROPULSION ALGORITHM FOR MOTOR 2 =====
 /**
  * Process PWM signal for motor 2
- * Same logic as motor 1
+ * Same logic as motor 1 - Bidirectional control
  */
 void processPropulsionMotor2() {
   static unsigned long lastPrint = 0;
@@ -273,7 +280,7 @@ void processPropulsionMotor2() {
     Serial.println(PropulsionValue2);
   }
 
-  // ===== OUT OF BOUNDS CHECK =====
+  // ===== OUT OF BOUNDS CHECK: < 900µs or > 2000µs =====
   if (PropSignal2 < SIGNAL_MIN || PropSignal2 > SIGNAL_MAX) {
     if (millis() - lastPrint < 100) {
       Serial.println("Motor2: ERROR - Out of range");
@@ -281,33 +288,36 @@ void processPropulsionMotor2() {
     analogWrite(PWM_PROP_PIN2, 0);
     PropulsionValue2 = 0;
   }
-  // ===== DEAD ZONE =====
-  else if (PropSignal2 < DEAD_ZONE) {
+  // ===== NEUTRAL POINT: 1500µs = STOP =====
+  else if (PropSignal2 == NEUTRAL_POINT) {
     if (millis() - lastPrint < 100) {
-      Serial.println("Motor2: Dead zone");
+      Serial.println("Motor2: Neutral - STOP");
     }
     analogWrite(PWM_PROP_PIN2, 0);
     PropulsionValue2 = 0;
-    digitalWrite(FORWARD_PIN2, LOW);
   }
-  // ===== FORWARD MOTION =====
-  else if (PropSignal2 >= DEAD_ZONE && PropSignal2 < FORWARD_THRESHOLD) {
+  // ===== REVERSE: < 1500µs =====
+  else if (PropSignal2 < NEUTRAL_POINT && PropSignal2 >= REVERSE_MIN) {
     if (millis() - lastPrint < 100) {
-      Serial.println("Motor2: Forward motion");
+      Serial.println("Motor2: Reverse");
     }
-    digitalWrite(FORWARD_PIN2, LOW);
-    PropulsionValue2 = map(PropSignal2, DEAD_ZONE, FORWARD_THRESHOLD, 0, 255);
+    digitalWrite(FORWARD_PIN2, LOW); // Reverse direction
+    // Proportional reverse: 900µs (100%) to 1500µs (0%)
+    uint32_t span = NEUTRAL_POINT - PropSignal2;
+    PropulsionValue2 = map(span, 0, (NEUTRAL_POINT - REVERSE_MIN), 0, 255);
+    PropulsionValue2 = constrain(PropulsionValue2, 0, 255);
     analogWrite(PWM_PROP_PIN2, PropulsionValue2);
   }
-  // ===== HIGH-SPEED or ERROR MODE =====
-  else if (PropSignal2 >= FORWARD_THRESHOLD) {
+  // ===== FORWARD: > 1500µs =====
+  else if (PropSignal2 > NEUTRAL_POINT && PropSignal2 <= FORWARD_MAX) {
     if (millis() - lastPrint < 100) {
-      Serial.println("Motor2: High-speed forward");
+      Serial.println("Motor2: Forward");
     }
-    digitalWrite(FORWARD_PIN2, LOW);
-    PropulsionValue2 =
-        map(PropSignal2, FORWARD_THRESHOLD, SIGNAL_MAX, 150, 255);
-    PropulsionValue2 = min(PropulsionValue2, 255);
+    digitalWrite(FORWARD_PIN2, HIGH); // Forward direction
+    // Proportional forward: 1500µs (0%) to 2000µs (100%)
+    uint32_t span = PropSignal2 - NEUTRAL_POINT;
+    PropulsionValue2 = map(span, 0, (FORWARD_MAX - NEUTRAL_POINT), 0, 255);
+    PropulsionValue2 = constrain(PropulsionValue2, 0, 255);
     analogWrite(PWM_PROP_PIN2, PropulsionValue2);
   }
 }
