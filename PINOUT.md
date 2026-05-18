@@ -24,15 +24,20 @@ BrakePin2   = PA_5  (PORTA Pin 5) - Brake control (spare)
 
 ### Control & Status Pins
 
+#### Variable PWM Outputs (900-2000µs servo-compatible)
+```
+PwmOutPin1  = PE_3  (PORTE Pin 3) - Motor 1 proportional output
+PwmOutPin2  = PF_1  (PORTF Pin 1) - Motor 2 proportional output
+PwmOutPin3  = PA_6  (PORTA Pin 6) - Motor 1 mirror output
+```
+
 #### Reversal / Emergency Stop
 ```
 ReversalIn  = PF_0  (PORTF Pin 0) - SW2 button input (active LOW)
-ReversalOut = PA_6  (PORTA Pin 6) - Emergency mode output
 ```
 
 #### Status Indicators
 ```
-LED_RED     = PF_1  (PORTF Pin 1) - On-board red LED
 LED_BLUE    = PF_2  (PORTF Pin 2) - On-board blue LED
 LED_GREEN   = PF_3  (PORTF Pin 3) - On-board green LED
 ```
@@ -49,8 +54,16 @@ LED_GREEN   = PF_3  (PORTF Pin 3) - On-board green LED
 | M0PWM3 | PC5 | - | PORTC.5 | - |
 | M0PWM4 | PD0 | - | PORTD.0 | - |
 | M0PWM5 | PD1 | - | PORTD.1 | - |
-| M0PWM6 | PE4 | - | PORTE.4 | ✓ Used for Motor 1 |
-| M0PWM7 | PE5 | - | PORTE.5 | ✓ Used for Motor 2 |
+| M0PWM6 | PE4 | - | PORTE.4 | ✓ Used for Motor 1 DC output |
+| M0PWM7 | PE5 | - | PORTE.5 | ✓ Used for Motor 2 DC output |
+
+### Variable PWM Outputs (Software-Generated, 900-2000µs)
+
+| Function | Pin | Port.Pin | Frequency | Pulse Range | Notes |
+|----------|-----|----------|-----------|------------|-------|
+| Motor 1 Servo Out | PE3 | PORTE.3 | ~333 Hz | 900-2000µs | ✓ Proportional Motor 1 |
+| Motor 2 Servo Out | PF1 | PORTF.1 | ~333 Hz | 900-2000µs | ✓ Proportional Motor 2 |
+| Mirror Output | PA6 | PORTA.6 | ~333 Hz | 900-2000µs | ✓ Motor 1 redundancy |
 
 ## Frequency and Duty Cycle
 
@@ -70,7 +83,7 @@ LED_GREEN   = PF_3  (PORTF Pin 3) - On-board green LED
 PORTA (pins 10-17, 36-37):
   PA0 - Pin 10    | PA4 - Pin 14
   PA1 - Pin 11    | PA5 - Pin 15 (JTAG TCK)
-  PA2 - Pin 12    | PA6 - Pin 16 (JTAG TDO)
+  PA2 - Pin 12    | PA6 - Pin 16 ✓ Variable PWM Output 3 (JTAG TDO)
   PA3 - Pin 13    | PA7 - Pin 37
 
 PORTB (pins 18-20, 45-47):
@@ -88,13 +101,13 @@ PORTD (pins 27-29, 38):
   PD1 - Pin 28 ✓ Forward Pin 2  | PD3 - Pin 38 (USB)
 
 PORTE (pins 30-34):
-  PE0 - Pin 30    | PE3 - Pin 33
-  PE1 - Pin 31    | PE4 - Pin 34 ✓ PWM Motor 1
-  PE2 - Pin 32    | PE5 - Pin 35 ✓ PWM Motor 2
+  PE0 - Pin 30    | PE3 - Pin 33 ✓ Variable PWM Output 1
+  PE1 - Pin 31    | PE4 - Pin 34 ✓ PWM Motor 1 (DC)
+  PE2 - Pin 32    | PE5 - Pin 35 ✓ PWM Motor 2 (DC)
 
 PORTF (pins 39-43, 48):
   PF0 - Pin 48 ✓ Emergency Stop | PF2 - Pin 41 (Blue LED)
-  PF1 - Pin 39 (Red LED)        | PF3 - Pin 40 (Green LED)
+  PF1 - Pin 39 ✓ Variable PWM Output 2 | PF3 - Pin 40 (Green LED)
   PF4 - Pin 42 (SW1)            | PF5 - N/A (No Pin)
 ```
 
@@ -134,6 +147,14 @@ The firmware uses Timer0 for PWM generation at 1kHz (standard Arduino frequency)
 - Use Port E for physical separation from input signals
 - M0PWM6/M0PWM7 for clean PWM output
 - 1kHz frequency suitable for DC motor control
+
+**Variable PWM Outputs (PE_3, PF_1, PA_6)**
+- Software-generated servo-compatible signals (900-2000µs)
+- PE_3: Motor 1 proportional output on Port E
+- PF_1: Motor 2 proportional output on Port F
+- PA_6: Motor 1 mirror for redundancy on Port A
+- ~333 Hz frequency suitable for servo and RC applications
+- updatePWMOutputs() function maintains timing in main loop
 
 **Direction Pins (PD0, PD1)**
 - Port D selected for clean digital control signals

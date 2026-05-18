@@ -22,16 +22,21 @@
 #include <stdint.h>
 
 // ===== LED PINS =====
-#define LED_RED PF_1   // Red LED (pin 33 on board)
 #define LED_BLUE PF_2  // Blue LED (pin 32 on board)
 #define LED_GREEN PF_3 // Green LED (pin 31 on board)
 
 // ===== REVERSAL PINS (Emergency stop / mode change) =====
 #define REVERSAL_IN PF_0 // SW2 button (pin 34 on board) - input from controller
-#define REVERSAL_OUT PA_6 // Output to indicate reversal mode
+
+// ===== PWM OUTPUT PINS (900-2000µs variable PWM) =====
+#define PWM_OUT_PIN1 PE_3 // PWM output 1 (900-2000µs)
+#define PWM_OUT_PIN2 PF_1 // PWM output 2 (900-2000µs)
+#define PWM_OUT_PIN3 PA_6 // PWM output 3 (900-2000µs)
 
 // ===== MOTOR 1 PINS (Left motor) =====
-#define PROP_IN_PIN1 PB_6 // PWM input from ArduPilot (PE4 can also receive PWM)
+#define PROP_IN_PIN1                                                           \
+  PF_4 // PWM input from ArduPilot (changed from PB_6 to avoid signal
+       // interaction)
 #define PWM_PROP_PIN1 PE_4 // PWM output to motor (M0PWM6)
 #define FORWARD_PIN1 PD_0  // Direction control - forward
 #define STOP_PIN1 PA_2     // Stop/brake line (spare)
@@ -50,6 +55,14 @@ long PropSignal2 = 0, PropulsionValue2 = 0;
 volatile unsigned long pulseStart1 = 0, pulseStart2 = 0;
 volatile long pulseDuration1 = 0, pulseDuration2 = 0;
 
+// ===== PWM OUTPUT TIMING VARIABLES =====
+volatile unsigned long pwmPulseStart1 = 0, pwmPulseStart2 = 0,
+                       pwmPulseStart3 = 0;
+volatile uint16_t pwmPulseWidth1 = 1500, pwmPulseWidth2 = 1500,
+                  pwmPulseWidth3 = 1500;
+volatile boolean pwmPulseActive1 = false, pwmPulseActive2 = false,
+                 pwmPulseActive3 = false;
+
 // ===== PWM MEASUREMENT CONSTANTS =====
 // User Requirements:
 // < 1500µs = Reverse
@@ -66,6 +79,8 @@ void interruptHandler1();
 void interruptHandler2();
 void processPropulsionMotor1();
 void processPropulsionMotor2();
+void outputVariablePWM(uint8_t pinIndex, uint16_t pulseWidthMicros);
+void updatePWMOutputs();
 
 // ===== SETUP =====
 void setup() {
@@ -78,16 +93,20 @@ void setup() {
 
   // ===== REVERSAL CONTROL =====
   pinMode(REVERSAL_IN, INPUT_PULLUP); // Input with internal pull-up
-  pinMode(REVERSAL_OUT, OUTPUT);
-  digitalWrite(REVERSAL_OUT, LOW);
 
   // ===== STATUS LED =====
-  pinMode(LED_RED, OUTPUT);
   pinMode(LED_BLUE, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
-  digitalWrite(LED_RED, LOW);
   digitalWrite(LED_BLUE, LOW);
   digitalWrite(LED_GREEN, LOW);
+
+  // ===== VARIABLE PWM OUTPUT PINS (900-2000µs) =====
+  pinMode(PWM_OUT_PIN1, OUTPUT);
+  pinMode(PWM_OUT_PIN2, OUTPUT);
+  pinMode(PWM_OUT_PIN3, OUTPUT);
+  digitalWrite(PWM_OUT_PIN1, LOW);
+  digitalWrite(PWM_OUT_PIN2, LOW);
+  digitalWrite(PWM_OUT_PIN3, LOW);
 
   // ===== MOTOR 1 INITIALIZATION =====
   pinMode(PROP_IN_PIN1, INPUT);   // PWM input
@@ -124,7 +143,8 @@ void setup() {
                   CHANGE);
 
   Serial.println("Initialization complete.");
-  Serial.println("Waiting for PWM signals...\n");
+  Serial.println("Waiting for PWM signals...");
+  Serial.println("Outputting 900-2000µs variable PWM to PE_3, PF_1, PA_6\n");
   delay(1000);
 }
 
@@ -142,20 +162,23 @@ void loop() {
   // Process motor 2
   processPropulsionMotor2();
 
+  // Update variable PWM outputs
+  updatePWMOutputs();
+
   // Handle reversal/emergency stop signal
   if (digitalRead(REVERSAL_IN) ==
       LOW) { // Button pressed (active low with pull-up)
     Serial.println("\n>>> REVERSAL SIGNAL RECEIVED - EMERGENCY STOP <<<");
     analogWrite(PWM_PROP_PIN1, 0);
     analogWrite(PWM_PROP_PIN2, 0);
-    digitalWrite(REVERSAL_OUT, HIGH);
-    digitalWrite(LED_RED, HIGH);
+    pwmPulseWidth1 = 1500; // Neutral
+    pwmPulseWidth2 = 1500; // Neutral
+    pwmPulseWidth3 = 1500; // Neutral
     digitalWrite(LED_GREEN, LOW);
-    digitalWrite(LED_BLUE, LOW);
+    digitalWrite(LED_BLUE, HIGH);
     delay(100);
   } else {
-    digitalWrite(REVERSAL_OUT, LOW);
-    digitalWrite(LED_RED, LOW);
+    digitalWrite(LED_BLUE, LOW);
   }
 
   delay(100); // Main loop cycle time
@@ -217,33 +240,39 @@ void processPropulsionMotor1() {
     if (millis() - lastPrint < 100) {
       Serial.println("ERROR: Out of range - STOP");
     }
-    digitalWrite(LED_RED, HIGH);
-    digitalWrite(LED_BLUE, LOW);
+    digitalWrite(LED_GREEN, LOW);
     analogWrite(PWM_PROP_PIN1, 0);
     PropulsionValue1 = 0;
+    pwmPulseWidth1 = 1500; // Neutral
+    pwmPulseWidth2 = 1500; // Neutral
+    pwmPulseWidth3 = 1500; // Neutral
   }
   // ===== NEUTRAL POINT: 1500µs = STOP =====
   else if (PropSignal1 == NEUTRAL_POINT) {
     if (millis() - lastPrint < 100) {
       Serial.println("Neutral - STOP");
     }
-    digitalWrite(LED_BLUE, HIGH);
-    digitalWrite(LED_RED, LOW);
+    digitalWrite(LED_GREEN, LOW);
     analogWrite(PWM_PROP_PIN1, 0);
     PropulsionValue1 = 0;
+    pwmPulseWidth1 = 1500; // Neutral
+    pwmPulseWidth2 = 1500; // Neutral
+    pwmPulseWidth3 = 1500; // Neutral
   }
   // ===== REVERSE: < 1500µs =====
   else if (PropSignal1 < NEUTRAL_POINT && PropSignal1 >= REVERSE_MIN) {
     if (millis() - lastPrint < 100) {
       Serial.println("Reverse");
     }
-    digitalWrite(LED_BLUE, LOW);
-    digitalWrite(LED_RED, LOW);
+    digitalWrite(LED_GREEN, LOW);
     digitalWrite(FORWARD_PIN1, LOW); // Reverse direction
     // Proportional reverse: 900µs (100%) to 1500µs (0%)
     uint32_t span = NEUTRAL_POINT - PropSignal1;
     PropulsionValue1 = map(span, 0, (NEUTRAL_POINT - REVERSE_MIN), 0, 255);
     PropulsionValue1 = constrain(PropulsionValue1, 0, 255);
+    // Map to 900-1500µs range for reverse
+    pwmPulseWidth1 = map(PropulsionValue1, 0, 255, 1500, 900);
+    pwmPulseWidth3 = pwmPulseWidth1; // Copy to pin 3
     analogWrite(PWM_PROP_PIN1, PropulsionValue1);
   }
   // ===== FORWARD: > 1500µs =====
@@ -252,12 +281,14 @@ void processPropulsionMotor1() {
       Serial.println("Forward");
     }
     digitalWrite(LED_GREEN, HIGH);
-    digitalWrite(LED_BLUE, LOW);
     digitalWrite(FORWARD_PIN1, HIGH); // Forward direction
     // Proportional forward: 1500µs (0%) to 2000µs (100%)
     uint32_t span = PropSignal1 - NEUTRAL_POINT;
     PropulsionValue1 = map(span, 0, (FORWARD_MAX - NEUTRAL_POINT), 0, 255);
     PropulsionValue1 = constrain(PropulsionValue1, 0, 255);
+    // Map to 1500-2000µs range for forward
+    pwmPulseWidth1 = map(PropulsionValue1, 0, 255, 1500, 2000);
+    pwmPulseWidth3 = pwmPulseWidth1; // Copy to pin 3
     analogWrite(PWM_PROP_PIN1, PropulsionValue1);
   }
 }
@@ -287,6 +318,7 @@ void processPropulsionMotor2() {
     }
     analogWrite(PWM_PROP_PIN2, 0);
     PropulsionValue2 = 0;
+    pwmPulseWidth2 = 1500; // Neutral
   }
   // ===== NEUTRAL POINT: 1500µs = STOP =====
   else if (PropSignal2 == NEUTRAL_POINT) {
@@ -295,6 +327,7 @@ void processPropulsionMotor2() {
     }
     analogWrite(PWM_PROP_PIN2, 0);
     PropulsionValue2 = 0;
+    pwmPulseWidth2 = 1500; // Neutral
   }
   // ===== REVERSE: < 1500µs =====
   else if (PropSignal2 < NEUTRAL_POINT && PropSignal2 >= REVERSE_MIN) {
@@ -306,6 +339,8 @@ void processPropulsionMotor2() {
     uint32_t span = NEUTRAL_POINT - PropSignal2;
     PropulsionValue2 = map(span, 0, (NEUTRAL_POINT - REVERSE_MIN), 0, 255);
     PropulsionValue2 = constrain(PropulsionValue2, 0, 255);
+    // Map to 900-1500µs range for reverse
+    pwmPulseWidth2 = map(PropulsionValue2, 0, 255, 1500, 900);
     analogWrite(PWM_PROP_PIN2, PropulsionValue2);
   }
   // ===== FORWARD: > 1500µs =====
@@ -318,6 +353,80 @@ void processPropulsionMotor2() {
     uint32_t span = PropSignal2 - NEUTRAL_POINT;
     PropulsionValue2 = map(span, 0, (FORWARD_MAX - NEUTRAL_POINT), 0, 255);
     PropulsionValue2 = constrain(PropulsionValue2, 0, 255);
+    // Map to 1500-2000µs range for forward
+    pwmPulseWidth2 = map(PropulsionValue2, 0, 255, 1500, 2000);
     analogWrite(PWM_PROP_PIN2, PropulsionValue2);
+  }
+}
+
+// ===== VARIABLE PWM OUTPUT FUNCTIONS =====
+/**
+ * Update PWM outputs on PE_3, PF_1, and PA_6
+ * This function generates variable pulse width (900-2000µs) on the output pins
+ * Called from main loop at regular intervals
+ */
+void updatePWMOutputs() {
+  unsigned long now = micros();
+
+  // ===== OUTPUT PIN 1 (PE_3) =====
+  if (!pwmPulseActive1 && (now - pwmPulseStart1) >= (3000 - pwmPulseWidth1)) {
+    // Time to start pulse
+    digitalWrite(PWM_OUT_PIN1, HIGH);
+    pwmPulseActive1 = true;
+    pwmPulseStart1 = now;
+  } else if (pwmPulseActive1 && (now - pwmPulseStart1) >= pwmPulseWidth1) {
+    // Time to end pulse
+    digitalWrite(PWM_OUT_PIN1, LOW);
+    pwmPulseActive1 = false;
+  }
+
+  // ===== OUTPUT PIN 2 (PF_1) =====
+  if (!pwmPulseActive2 && (now - pwmPulseStart2) >= (3000 - pwmPulseWidth2)) {
+    // Time to start pulse
+    digitalWrite(PWM_OUT_PIN2, HIGH);
+    pwmPulseActive2 = true;
+    pwmPulseStart2 = now;
+  } else if (pwmPulseActive2 && (now - pwmPulseStart2) >= pwmPulseWidth2) {
+    // Time to end pulse
+    digitalWrite(PWM_OUT_PIN2, LOW);
+    pwmPulseActive2 = false;
+  }
+
+  // ===== OUTPUT PIN 3 (PA_6) =====
+  if (!pwmPulseActive3 && (now - pwmPulseStart3) >= (3000 - pwmPulseWidth3)) {
+    // Time to start pulse
+    digitalWrite(PWM_OUT_PIN3, HIGH);
+    pwmPulseActive3 = true;
+    pwmPulseStart3 = now;
+  } else if (pwmPulseActive3 && (now - pwmPulseStart3) >= pwmPulseWidth3) {
+    // Time to end pulse
+    digitalWrite(PWM_OUT_PIN3, LOW);
+    pwmPulseActive3 = false;
+  }
+}
+
+/**
+ * Output variable PWM pulse width to a specific pin
+ * This is a helper function if you need to manually set PWM on a pin
+ * pinIndex: 1=PE_3, 2=PF_1, 3=PA_6
+ * pulseWidthMicros: 900-2000 microseconds
+ */
+void outputVariablePWM(uint8_t pinIndex, uint16_t pulseWidthMicros) {
+  // Constrain pulse width to valid range
+  uint16_t constrainedWidth = constrain(pulseWidthMicros, 900, 2000);
+
+  switch (pinIndex) {
+  case 1:
+    pwmPulseWidth1 = constrainedWidth;
+    break;
+  case 2:
+    pwmPulseWidth2 = constrainedWidth;
+    break;
+  case 3:
+    pwmPulseWidth3 = constrainedWidth;
+    break;
+  default:
+    // Invalid pin index
+    break;
   }
 }

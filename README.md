@@ -97,13 +97,16 @@ This project provides **multiple development environments**:
 ---
 
 - **2 PWM Inputs**: Receives motor control signals from ArduPilot flight controller
-- **2 PWM Outputs**: Drives brushed DC motors via motor controller
+- **2 PWM Outputs**: Drives brushed DC motors via motor controller (PE4, PE5)
+- **3 Variable PWM Outputs**: 900-2000µs servo-compatible PWM signals (PE_3, PF_1, PA_6)
+  - PE_3: Motor 1 proportional output
+  - PF_1: Motor 2 proportional output
+  - PA_6: Motor 1 mirror output
 - **Directional Control**: 2 forward/reverse pins for relay-based direction switching
 - **Emergency Stop**: Reversal input (SW2) for emergency motor shutdown
-- **Status LEDs**: RGB LED indicators for system state
-  - Red: Error/out-of-bounds signal
-  - Blue: Dead zone (no motion)
-  - Green: High-speed mode
+- **Status LEDs**: Status indicators for system state
+  - Blue: Dead zone or Emergency stop
+  - Green: Forward motion active
 
 ## Hardware Pinout
 
@@ -125,12 +128,17 @@ This project provides **multiple development environments**:
 | Stop (spare) | PA3 | PORTA.3 | Currently unused |
 | Brake (spare) | PA5 | PORTA.5 | Currently unused |
 
+### Variable PWM Outputs (900-2000µs)
+| Function | Pin | Port.Pin | Notes |
+|----------|-----|----------|-------|
+| PWM Output 1 | PE3 | PORTE.3 | Motor 1 proportional (servo-compatible) |
+| PWM Output 2 | PF1 | PORTF.1 | Motor 2 proportional (servo-compatible) |
+| PWM Output 3 | PA6 | PORTA.6 | Motor 1 mirror output (servo-compatible) |
+
 ### Control Signals
 | Function | Pin | Port.Pin | Notes |
 |----------|-----|----------|-------|
 | Reversal Input (Emergency Stop) | PF0 | PORTF.0 | SW2 on LaunchPad (active low) |
-| Reversal Output | PA6 | PORTA.6 | Indicates reversal/emergency mode |
-| Status LED Red | PF1 | PORTF.1 | On-board red LED |
 | Status LED Blue | PF2 | PORTF.2 | On-board blue LED |
 | Status LED Green | PF3 | PORTF.3 | On-board green LED |
 
@@ -189,17 +197,34 @@ From ArduPilot:
 The firmware uses hardware interrupts on PB6 and PB7 to measure incoming PWM pulse widths. This provides accurate timing without blocking the main loop.
 
 ### LED Status Indicators
-- **All Off**: Initializing or reversal active
-- **Red On**: Signal out of bounds (safety error)
-- **Blue On**: Dead zone - no motion
-- **Green On**: High-speed forward mode
+- **All Off**: Initializing
+- **Blue On**: Dead zone (no motion) or emergency stop active
+- **Green On**: Forward motion active
 
 ### Motor Safety Features
 - Dead zone below 900µs prevents accidental motion
 - Out-of-bounds detection for signal loss
 - Emergency stop via SW2 button (reversal input)
 - Smooth ramping in high-speed mode (150-255 PWM)
+## Variable PWM Output Signals (900-2000µs)
 
+The firmware generates servo-compatible PWM signals on three pins:
+- **PE_3** (Motor 1): Proportional signal from Motor 1 input
+- **PF_1** (Motor 2): Proportional signal from Motor 2 input  
+- **PA_6** (Mirror): Copy of Motor 1 output for redundancy
+
+These signals can be used to drive:
+- Servo motors (standard 1000-2000µs servo format)
+- Flight controller auxiliary inputs
+- RC receiver emulation
+- Telemetry/feedback systems
+
+**Signal Format:**
+- Frequency: ~333 Hz (3ms period)
+- Minimum pulse: 900µs (reverse full)
+- Neutral: 1500µs (stop)
+- Maximum pulse: 2000µs (forward full)
+- Logic level: 3.3V TTL
 ## Troubleshooting
 
 ### No Serial Communication
@@ -216,7 +241,13 @@ The firmware uses hardware interrupts on PB6 and PB7 to measure incoming PWM pul
 - Check PWM output pins (PE4/PE5) connections
 - Verify motor controller power supply
 - Check direction pins (PD0/PD1) logic levels
-- Ensure signal range within 900-1400µs for normal operation
+- Ensure signal range within 900-2000µs for normal operation
+
+### Variable PWM Outputs Not Working
+- Verify PE_3, PF_1, PA_6 are connected to appropriate devices
+- Check with oscilloscope for 900-2000µs pulse generation
+- Ensure 3.3V logic levels are compatible with receiving device
+- Verify `updatePWMOutputs()` is called in main loop (called automatically)
 
 ## Stellaris LM4F120 Pin Capabilities
 
