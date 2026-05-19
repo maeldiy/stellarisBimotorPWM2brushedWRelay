@@ -63,6 +63,14 @@ volatile uint16_t pwmPulseWidth1 = 1500, pwmPulseWidth2 = 1500,
 volatile boolean pwmPulseActive1 = false, pwmPulseActive2 = false,
                  pwmPulseActive3 = false;
 
+// ===== PWM SWEEP VARIABLES (for testing) =====
+volatile unsigned long lastSweepTime = 0;
+volatile uint16_t pwmSweepValue = 900; // Start at 900µs
+const uint16_t PWM_SWEEP_MIN = 900;    // Minimum sweep value
+const uint16_t PWM_SWEEP_MAX = 1900;   // Maximum sweep value
+const uint16_t PWM_SWEEP_STEP = 50;    // Increment by 50µs
+const unsigned long SWEEP_INTERVAL = 1000; // Update every 1000ms (1 second)
+
 // ===== PWM MEASUREMENT CONSTANTS =====
 // User Requirements:
 // < 1500µs = Reverse
@@ -81,6 +89,7 @@ void processPropulsionMotor1();
 void processPropulsionMotor2();
 void outputVariablePWM(uint8_t pinIndex, uint16_t pulseWidthMicros);
 void updatePWMOutputs();
+void updatePWMSweep();
 
 // ===== SETUP =====
 void setup() {
@@ -145,6 +154,8 @@ void setup() {
   Serial.println("Initialization complete.");
   Serial.println("Waiting for PWM signals...");
   Serial.println("Outputting 900-2000µs variable PWM to PE_3, PF_1, PA_6\n");
+  Serial.println("PWM Sweep Mode: 900µs -> 1900µs (+50µs every 1s, auto-restart)\n");
+  lastSweepTime = millis();
   delay(1000);
 }
 
@@ -161,6 +172,9 @@ void loop() {
 
   // Process motor 2
   processPropulsionMotor2();
+
+  // Update PWM sweep values
+  updatePWMSweep();
 
   // Update variable PWM outputs
   updatePWMOutputs();
@@ -428,5 +442,37 @@ void outputVariablePWM(uint8_t pinIndex, uint16_t pulseWidthMicros) {
   default:
     // Invalid pin index
     break;
+  }
+}
+
+/**
+ * Update PWM sweep: incrementally increase pulse width from 900µs to 1900µs
+ * Increments by 50µs every 1 second, then restarts at 900µs
+ */
+void updatePWMSweep() {
+  unsigned long currentTime = millis();
+
+  // Check if it's time to update the sweep value (every 1 second)
+  if (currentTime - lastSweepTime >= SWEEP_INTERVAL) {
+    lastSweepTime = currentTime;
+
+    // Print current sweep value
+    Serial.print("PWM Sweep: ");
+    Serial.print(pwmSweepValue);
+    Serial.println("µs");
+
+    // Increment sweep value
+    pwmSweepValue += PWM_SWEEP_STEP;
+
+    // Check if we've reached the maximum, if so restart at minimum
+    if (pwmSweepValue > PWM_SWEEP_MAX) {
+      pwmSweepValue = PWM_SWEEP_MIN;
+      Serial.println("PWM Sweep restarted at 900µs");
+    }
+
+    // Update all three PWM output pins with the current sweep value
+    pwmPulseWidth1 = pwmSweepValue;
+    pwmPulseWidth2 = pwmSweepValue;
+    pwmPulseWidth3 = pwmSweepValue;
   }
 }
