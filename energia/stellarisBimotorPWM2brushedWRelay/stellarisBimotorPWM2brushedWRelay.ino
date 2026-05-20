@@ -26,7 +26,7 @@
 
 // ===== PWM OUTPUT PINS (900-2000µs variable PWM) =====
 #define PWM_OUT_PIN1 PE_3 // PWM output 1 (900-2000µs)
-#define PWM_OUT_PIN2 PF_1 // PWM output 2 (900-2000µs)
+#define PWM_OUT_PIN2 PA_7 // PWM output 2 (900-2000µs)
 #define PWM_OUT_PIN3 PA_6 // PWM output 3 (900-2000µs)
 
 // ===== MOTOR 1 PINS (Left motor) =====
@@ -50,16 +50,19 @@ volatile unsigned long pulseStart1 = 0, pulseStart2 = 0;
 volatile long pulseDuration1 = 0, pulseDuration2 = 0;
 
 // ===== PWM OUTPUT TIMING VARIABLES =====
-volatile unsigned long pwmPulseStart1 = 0, pwmPulseStart2 = 0, pwmPulseStart3 = 0;
-volatile uint16_t pwmPulseWidth1 = 1500, pwmPulseWidth2 = 1500, pwmPulseWidth3 = 1500;
-volatile boolean pwmPulseActive1 = false, pwmPulseActive2 = false, pwmPulseActive3 = false;
+volatile unsigned long pwmPulseStart1 = 0, pwmPulseStart2 = 0,
+                       pwmPulseStart3 = 0;
+volatile uint16_t pwmPulseWidth1 = 1500, pwmPulseWidth2 = 1500,
+                  pwmPulseWidth3 = 1500;
+volatile boolean pwmPulseActive1 = false, pwmPulseActive2 = false,
+                 pwmPulseActive3 = false;
 
 // ===== PWM SWEEP VARIABLES (for testing) =====
 volatile unsigned long lastSweepTime = 0;
-volatile uint16_t pwmSweepValue = 900; // Start at 900µs
-const uint16_t PWM_SWEEP_MIN = 900;    // Minimum sweep value
-const uint16_t PWM_SWEEP_MAX = 1900;   // Maximum sweep value
-const uint16_t PWM_SWEEP_STEP = 50;    // Increment by 50µs
+volatile uint16_t pwmSweepValue = 900;     // Start at 900µs
+const uint16_t PWM_SWEEP_MIN = 900;        // Minimum sweep value
+const uint16_t PWM_SWEEP_MAX = 1900;       // Maximum sweep value
+const uint16_t PWM_SWEEP_STEP = 50;        // Increment by 50µs
 const unsigned long SWEEP_INTERVAL = 1000; // Update every 1000ms (1 second)
 
 // ===== PWM MEASUREMENT CONSTANTS =====
@@ -143,8 +146,9 @@ void setup() {
 
   Serial.println("Initialization complete.");
   Serial.println("Waiting for PWM signals...");
-  Serial.println("Outputting 900-2000µs variable PWM to PE_3, PF_1, PA_6\n");
-  Serial.println("PWM Sweep Mode: 900µs -> 1900µs (+50µs every 1s, auto-restart)\n");
+  Serial.println("Outputting 900-2000µs variable PWM to PE_3, PA_7, PA_6\n");
+  Serial.println(
+      "PWM Sweep Mode: 900µs -> 1900µs (+50µs every 1s, auto-restart)\n");
   lastSweepTime = millis();
   delay(1000);
 }
